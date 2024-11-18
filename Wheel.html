@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spin the Wheel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f2f2f2;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .wheel-container {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            position: relative;
+            width: 100%;
+            margin-right: 50px;
+        }
+
+        .wheel {
+            position: relative;
+            margin-top: 50px;
+            width: 70vmin;
+            height: 70vmin;
+            border-radius: 50%;
+            background: conic-gradient(
+                red 0deg 60deg, 
+                yellow 60deg 120deg, 
+                green 120deg 180deg, 
+                blue 180deg 240deg, 
+                purple 240deg 300deg, 
+                pink 300deg 360deg
+            );
+            transition: transform 6s cubic-bezier(0.1, 1, 0.3, 1); /* Slower rotation */
+            transform-origin: center;
+        }
+
+        .button-container {
+            position: absolute;
+            bottom: 50px;
+            text-align: center;
+        }
+
+        .button {
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #winner {
+            margin-top: 20px;
+            margin-left: 50px;
+            font-size: 56px;
+            font-weight: bold;
+            color: #333;
+            visibility: visible; /* Keep it visible as default */
+        }
+
+        #stock {
+            margin-top: 10px;
+            margin-left: 50px;
+            font-size: 18px;
+            color: #333;
+            white-space: pre-wrap;
+            text-align: left;
+        }
+
+        .left-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            margin-left: 100px;
+            margin-bottom: 200px;
+            position: absolute;
+            left: 0;
+        }
+
+        /* Confetti animation */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: rgba(255, 0, 0, 0.8);
+            opacity: 0;
+            animation: confetti-animation 3s forwards;
+        }
+
+        @keyframes confetti-animation {
+            0% {
+                opacity: 1;
+                transform: translateY(0) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(500px) rotate(720deg);
+            }
+        }
+
+        .celebration {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: none;
+        }
+
+        /* Position the toggle stock button in the top-left corner */
+        #toggleStockBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 16px;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="wheel-container">
+        <div class="left-container">
+            <div id="winner">ของรางวัลคือ!!: </div> <!-- Default text shown -->
+            <div id="stock">รายการของรางวัล:<br></div>
+        </div>
+
+        <div class="wheel" id="wheel"></div>
+    </div>
+
+    <div class="button-container">
+        <button class="button" id="spinBtn">Spin the Wheel!</button>
+    </div>
+
+    <!-- Toggle stock button positioned in the top-left corner -->
+    <button id="toggleStockBtn">Toggle Stock</button>
+
+    <div class="celebration" id="celebration"></div>
+
+    <script>
+        const prizeStock = {
+            "ทิชชู่แห้ง": 30,
+            "ทิชชู่เปียก": 40,
+            "มาม่า": 90,
+            "จายา": 30,
+            "กระเป๋าเดินทาง(ใหญ่)": 1,
+            "กระเป๋าเดินทาง(เล็ก)": 1,
+            "ผ้าห่มคอตตอนลายพาวเวอร์พัฟเกิร์ล": 1,
+            "ผ้าห่มคอตตอนลายหมูเด้ง": 1,
+            "เตาอบไฟฟ้า": 1,
+            "หม้อหุงข้าว ขนาด 1 ลิตร": 1,
+            "ถุงใส่รองเท้าสีเทา": 10,
+            "ถุงใส่รองเท้าสีดำ": 10,
+            "พาวเวอร์แบงค์ Eloop สีดำ": 1,
+            "พาวเวอร์แบงค์ Eloop สีขาว": 1,
+            "กล่องใส่ข้าว กล่องถนอมอาหาร": 20,
+            "เลย์": 30,
+            "กล่องใส่รองเท้าสีขาว": 10,
+            "ช้อนส้อม เกาหลี สีเงิน": 12,
+            "ช้อนส้อม เกาหลี สีทอง": 10
+        };
+
+        let showStock = true; // Flag to track if stock count is visible
+
+        // Function to calculate weighted random selection
+        function weightedRandomSelection() {
+            const availablePrizes = Object.entries(prizeStock)
+                .filter(([prize, stock]) => stock > 0);
+
+            const totalWeight = availablePrizes.reduce((sum, [_, stock]) => sum + stock, 0);
+
+            const randomValue = Math.random() * totalWeight;
+
+            let cumulativeWeight = 0;
+            for (const [prize, stock] of availablePrizes) {
+                cumulativeWeight += stock;
+                if (randomValue < cumulativeWeight) {
+                    return prize;
+                }
+            }
+        }
+
+        // Update stock display
+        function updateStockDisplay() {
+            const stockDisplay = document.getElementById('stock');
+            let stockText = "รายการของรางวัล:<br>";
+            for (const [prize, stock] of Object.entries(prizeStock)) {
+                if (showStock) {
+                    stockText += `${prize}: ${stock}<br>`;
+                } else {
+                    stockText += `${prize}<br>`;
+                }
+            }
+            stockDisplay.innerHTML = stockText;
+        }
+
+        // Function to generate confetti animation
+        function generateConfetti() {
+            const celebration = document.getElementById('celebration');
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement('div');
+                confetti.classList.add('confetti');
+                confetti.style.left = `${Math.random() * 100}vw`;
+                confetti.style.animationDelay = `${Math.random() * 2}s`; // Random delay for staggered fall
+                celebration.appendChild(confetti);
+            }
+            celebration.style.display = 'block'; // Show celebration
+        }
+
+        // Function to handle spinning
+        function spinWheel() {
+            const wheel = document.getElementById('wheel');
+            const winnerDisplay = document.getElementById('winner');
+            const celebration = document.getElementById('celebration');
+
+            // Reset the winner text to the default
+            winnerDisplay.textContent = "ของรางวัลคือ!!:";
+
+            // Stop previous animation if exists
+            wheel.style.transition = 'none'; // Disable transition for immediate reset
+            wheel.style.transform = 'rotate(0deg)'; // Reset to 0deg
+
+            // Force the browser to register the reset
+            void wheel.offsetWidth;
+
+            // Apply the transition and set new rotation value
+            wheel.style.transition = 'transform 6s cubic-bezier(0.1, 1, 0.3, 1)'; // Slower rotation
+            const randomRotation = Math.floor(Math.random() * 360) + 1800; // 1800 deg + random spin
+            wheel.style.transform = `rotate(${randomRotation}deg)`; // Apply rotation
+
+            const selectedPrize = weightedRandomSelection();
+
+            if (!selectedPrize) {
+                winnerDisplay.textContent = "ไม่มีของรางวัลเหลือแล้ว";
+                return;
+            }
+
+            prizeStock[selectedPrize] -= 1;
+
+            updateStockDisplay();
+
+            // Delay the winner text display after wheel stop (setTimeout for delay)
+            setTimeout(() => {
+                winnerDisplay.textContent = `ของรางวัลคือ!!: ${selectedPrize}`;
+                generateConfetti(); // Trigger confetti after the wheel stops
+            }, 4000); // Adjusted for the spin duration
+
+            celebration.style.display = 'none'; // Hide confetti after display
+        }
+
+        // Event listener for the spin button
+        document.getElementById('spinBtn').addEventListener('click', spinWheel);
+
+        // Event listener for the "Enter" key press
+        window.addEventListener('keydown', function(event) {
+            if (event.key === "Enter") {
+                spinWheel();
+            }
+        });
+
+        // Toggle stock display visibility
+        document.getElementById('toggleStockBtn').addEventListener('click', function() {
+            showStock = !showStock; // Toggle the flag
+            updateStockDisplay(); // Update the display accordingly
+        });
+
+        // Initialize the stock display
+        updateStockDisplay();
+    </script>
+
+</body>
+</html>
